@@ -1,0 +1,121 @@
+#################################################################
+# SpreeCommerce Deployment Configuration for Render.com
+#################################################################
+
+# List all services *except* PostgreSQL databases here
+services:
+  # A web service for SpreeCommerce (Ruby on Rails)
+  - type: web
+    runtime: ruby
+    name: spreecommerce
+    repo: https://github.com/jhanitesh10/spree # Use your repo
+    numInstances: 3   # Manual scaling configuration. Default: 1
+    region: frankfurt # You can choose other regions (e.g., oregon)
+    plan: standard    # Change to "starter" for free tier if small-scale
+    branch: main      # Default: master
+    buildCommand: |
+      bundle install
+      yarn install # if using webpacker for assets
+    preDeployCommand: |
+      bundle exec rake db:create
+      bundle exec rake db:migrate
+      bundle exec rake spree:load_sample_data # Optional, remove if not needed
+    startCommand: |
+      bundle exec rails server -b '0.0.0.0' -p $PORT
+    autoDeploy: true # Enable auto-deployment when changes are pushed to Git
+    envVars: # Environment variables
+      - key: DATABASE_URL
+        fromDatabase:
+          name: spree-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: spree-redis
+          type: redis
+          property: host
+      - key: SECRET_KEY_BASE
+        generateValue: true
+      - key: RAILS_ENV
+        value: production
+      - key: RAILS_SERVE_STATIC_FILES
+        value: 'true'
+      - key: SPAWN_WORKERS
+        value: 'true' # For background workers, if used
+
+  # A Redis service for caching and background jobs (optional)
+  - type: redis
+    name: spree-redis
+    plan: free # Use free Redis for testing, upgrade for production
+    ipAllowList:
+      - source: 0.0.0.0/0
+        description: everywhere
+    maxmemoryPolicy: allkeys-lru # You can adjust this based on your needs
+
+  # A PostgreSQL database for SpreeCommerce
+  - type: postgres
+    name: spree-db
+    plan: starter # Use free tier for small-scale
+    ipAllowList:
+      - source: 0.0.0.0/0 # Open to the public (for this demo)
+    databaseName: spreecommerce
+    user: spreeuser
+    password: secretpassword # Secure this with environment variables
+    maxConnections: 100
+
+  # Background worker service (optional for Sidekiq or similar)
+  - type: worker
+    name: spree-worker
+    repo: https://github.com/your-username/spreecommerce # Use your repo
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: spree-redis
+          type: redis
+          property: host
+    startCommand: |
+      bundle exec sidekiq -C config/sidekiq.yml
+    autoDeploy: true # Enable auto-deployment for worker changes
+
+  # Static assets and file uploads (optional: file storage for images)
+  - type: pserv
+    name: spree-storage
+    repo: https://github.com/your-username/spree-storage # Use your storage repo (if separate)
+    envVars:
+      - key: AWS_ACCESS_KEY_ID
+        sync: false # Prompt for a value
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false # Prompt for a value
+      - key: AWS_BUCKET_NAME
+        sync: false # Prompt for a value
+      - key: AWS_REGION
+        value: us-east-1 # Replace with your region
+    disk:
+      name: spree-storage-disk
+      mountPath: /spree-assets
+      sizeGB: 10
+
+# Optional: Database replica for high availability
+databases:
+  - name: spree-db-replica
+    databaseName: spreecommerce
+    user: spreeuser
+    readReplicas:
+      - name: spree-db-replica-1
+
+# Environment groups
+envVarGroups:
+  - name: spree-settings
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: spree-db
+          property: connectionString
+      - key: SECRET_KEY_BASE
+        generateValue: true
+      - key: REDIS_URL
+        fromService:
+          name: spree-redis
+          type: redis
+          property: host
