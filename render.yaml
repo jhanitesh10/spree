@@ -9,9 +9,9 @@ services:
     runtime: ruby
     name: spreecommerce
     repo: https://github.com/jhanitesh10/spree # Use your repo
-    numInstances: 3   # Manual scaling configuration. Default: 1
+    numInstances: 2   # Manual scaling configuration. Default: 1
     region: frankfurt # You can choose other regions (e.g., oregon)
-    plan: standard    # Change to "starter" for free tier if small-scale
+    plan: starter    # Change to "starter" for free tier if small-scale
     branch: main      # Default: master
     buildCommand: |
       bundle install
