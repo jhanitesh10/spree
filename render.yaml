@@ -41,21 +41,3 @@ services:
         value: 'true'
       - key: SPAWN_WORKERS
         value: 'true' # For background workers, if used
-
-# Environment groups
-envVarGroups:
-  - name: spree-settings
-    envVars:
-      - key: RAILS_ENV
-        value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: spree-db
-          property: connectionString
-      - key: SECRET_KEY_BASE
-        generateValue: true
-      - key: REDIS_URL
-        fromService:
-          name: spree-redis
-          type: redis
-          property: host
